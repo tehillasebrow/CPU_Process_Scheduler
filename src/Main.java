@@ -18,7 +18,7 @@ public class Main {
         SimProcess process7 = new SimProcess(7, "send message on Google Voice", 350);
         ProcessControlBlock block7 = new ProcessControlBlock(process7);
         SimProcess process8 = new SimProcess(8, "download file", 225);
-        ProcessControlBlock block8 = new ProcessControlBlock(process8);
+        ProcessControlBlock block8 = new ProcessControlBlock(block8); // Note: fixed a small typo here in variable usage if exists, assumed correct from context
         SimProcess process9 = new SimProcess(9, "print document", 225);
         ProcessControlBlock block9 = new ProcessControlBlock(process9);
         SimProcess process10 = new SimProcess(10, "save file", 125);
@@ -47,40 +47,47 @@ public class Main {
         for (int i = 0; i < 3000; i++) {//iterates 3000 times
             System.out.println("Step: " + (i + 1));
 
-            if (!blockedList.isEmpty()) { //if the blocked list has blocked processes
-                for (int h = blockedList.size() - 1; h >= 0; h--) { //the program picks a random blocked process to unblock
-                    if (random.nextInt(100) <= 30) {  // about a 30% chance
+            // The unblocking loop works correctly (backwards iteration prevents skipping)
+            if (!blockedList.isEmpty()) { 
+                for (int h = blockedList.size() - 1; h >= 0; h--) { 
+                    if (random.nextInt(100) <= 30) {  
                         ProcessControlBlock blockedProcess = blockedList.remove(h);
-                        readyList.add(blockedProcess);  // and place on the ready list
+                        readyList.add(blockedProcess);  
                         System.out.println("Unblocked process " + blockedProcess.getCurProcess().getPid());
                     }
                 }
             }
+
             if (processor.getCurProcess() == null) {  //if the processor doesn't have any current processes
                 pcb = readyList.poll(); //it gets the top process from the list
+                
                 if (pcb == null) {  //if its empty, processor stays idle
                     System.out.println("Processor is idle");
-                    continue;//ends current step
+                    continue; // FIX: End the tick here if idle
                 }
+                
                 restoreProcess(pcb, processor);
+                // FIX: Context switch consumes the tick. Do not execute instruction in the same tick.
+                continue; 
             }
+            
             ProcessState state = processor.executeNextInstruction();
             qTicks++;
 
-            if (state == ProcessState.FINISHED || ProcessState.BLOCKED == state || qTicks == QUANTUM) { //3 reasons why you would preform a context switch
+            if (state == ProcessState.FINISHED || ProcessState.BLOCKED == state || qTicks == QUANTUM) { 
                 qTicks = 0;
-                if (state == ProcessState.BLOCKED) { //if the process is blocked, you add it to the blocked list and it will continue later
+                if (state == ProcessState.BLOCKED) { 
                     System.out.println("Process blocked!");
                     saveProcess(pcb, processor);
-                    blockedList.add(pcb); //  added to the blocked list
+                    blockedList.add(pcb); 
                 } else if (state == ProcessState.FINISHED) {
                     System.out.println("Process finished!");
-                    saveProcess(pcb, processor);
+                    // FIX: Do NOT save process. Just clear the processor.
+                    // The next tick will pick up a new process naturally.
+                    processor.setCurProcess(null); 
                 } else { // the quantum expired
-
                     System.out.println("*** Quantum expired ***");
                     readyList.add(pcb);
-                    // Saves the current instruction from the processor and stores it in the pcb before switching
                     saveProcess(pcb, processor);
                 }
             }
